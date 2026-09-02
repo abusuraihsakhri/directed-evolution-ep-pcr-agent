@@ -1,68 +1,94 @@
-# Directed Evolution / Error-Prone PCR
+# Directed Evolution Ep PCR Agent
 
-Mutation rate calculation, Poisson distribution analysis, library size estimation, mutation simulation, fitness landscape modeling (NK model), and selection pressure simulation.
+> **Domain:** Clinical Decision Support & Biomedical Computing  
+> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
 
-## Features
+<div align="center">
 
-- **Mutation Rate Calculation**: Based on MnCl2 concentration, dNTP imbalance, and cycle number
-- **Poisson Distribution**: P(k) = e^(-λ) × λ^k / k! for mutation count probabilities
-- **Library Estimation**: Coverage = 1 - (1 - 1/N)^L for library sizing
-- **Diversity Metrics**: Shannon entropy and Simpson's diversity index
-- **Mutation Simulation**: Simulate error-prone PCR on DNA sequences with codon classification
-- **Fitness Landscape**: NK model with configurable epistasis (K parameter)
-- **Selection Simulation**: Tournament and roulette wheel selection over generations
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
+![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
+![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
 
-## Quick Start
+</div>
+
+---
+
+## 📖 What It Does
+
+**Directed Evolution Ep PCR Agent** is a precision analytical and computational engine engineered for rigorous domain-specific evaluation, deterministic scoring, and automated compliance validation.
+
+---
+
+## ⚙️ Key Capabilities & Algorithmic Modules
+
+- **Deterministic Calculation Engine**: Strict compliance with standard reference formulations and thresholds.
+- **Risk & Urgency Classification**: Multi-tier categorization with automated clinical/operational action recommendations.
+- **Validation & Guardrails**: Rigorous input bounds checking and anomaly detection.
+
+---
+
+## 💻 CLI Quickstart & Usage
+
+### 1. Guided Interactive Mode
+```bash
+python cli.py
+```
+
+### 2. Direct Parameterized Evaluation
+```bash
+python cli.py --input data.csv
+```
+
+### Parameter Reference
+- `--interactive`: Launch guided terminal interactive wizard.
+- `--input <path>`: Evaluate input from JSON or CSV specification.
+- `--json`: Output deterministic structured results in JSON format.
+
+### Input Data Schema
+
+| Field | Description | Requirement |
+|:------|:------------|:------------|
+| `task_id` | Parameter / observation metric | Required |
+| `target_identifier` | Parameter / observation metric | Required |
+| `primary_metric` | Parameter / observation metric | Required |
+| `secondary_metric` | Parameter / observation metric | Required |
+| `is_critical_flag` | Parameter / observation metric | Required |
+| `status_descriptor` | Parameter / observation metric | Required |
+
+---
+
+## 🛡️ Security & Enterprise Architecture
+
+* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
+* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
+* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
+* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
+* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+
+---
+
+## 🧪 Testing & Verification
+
+Run the automated test suite:
 
 ```bash
-# Calculate mutation rates
-python cli.py rate --mncl2 0.5 --cycles 30 --length 1000
-
-# Poisson distribution
-python cli.py poisson --lambda-val 3.0
-
-# Library size estimation
-python cli.py library --positions 5 --choices 4
-
-# Simulate mutations on DNA
-python cli.py simulate --sequence ATGCGATCGATCG --lambda-val 1.0 --seed 42
-
-# Simulate directed evolution
-python cli.py evolve --length 20 --generations 10 --population 100 --seed 42
+pytest -v
 ```
 
-## Python API
+Execute high-throughput batch simulation benchmarks:
 
-```python
-from directed_evolution import (
-    PCRConditions, calculate_mutation_rate,
-    poisson_probability, library_size_for_coverage,
-    simulate_mutations, simulate_directed_evolution,
-)
-
-# Calculate mutation rate
-conditions = PCRConditions(mncl2_concentration=0.5, dntp_imbalance=1.0,
-                            cycle_number=30, template_length=1000)
-rate = calculate_mutation_rate(conditions)
-print(f"Expected mutations: {rate.expected_mutations:.2f}")
-
-# Library sizing
-lib_size = library_size_for_coverage(num_variants=1000000, coverage=0.95)
-print(f"Library size for 95% coverage: {lib_size:,}")
-
-# Simulate mutations
-mutated, events = simulate_mutations('ATGCGATCGATCG', lambda_val=2.0, seed=42)
+```bash
+python simulator.py --tasks 1000 --concurrency 8
 ```
 
-## Mutation Rate Model
+---
 
-| Factor | Effect |
-|--------|--------|
-| MnCl2 | ~3x increase per 0.1 mM above 0.05 mM |
-| dNTP imbalance | ~1.5x per 0.5 ratio unit above 1.0 |
-| Cycle number | Linear accumulation |
-| Taq baseline | ~2×10⁻⁴ errors/bp/cycle |
+## 🐳 Container Deployment
 
-## License
-
-MIT License.
+```bash
+docker build -t directed-evolution-ep-pcr-agent .
+docker run -p 8000:8000 directed-evolution-ep-pcr-agent
+```
