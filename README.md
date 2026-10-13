@@ -1,5 +1,7 @@
 # Directed Evolution / Error-Prone PCR
 
+### [Open the Live Application →](https://abusuraihsakhri.github.io/directed-evolution-ep-pcr-agent/)
+
 A Python toolkit for conceptual error-prone PCR (ep-PCR), sequence mutation, library coverage and directed-evolution simulation, with a standalone browser calculator and a separate FastAPI audit service.
 
 ## Features
@@ -20,7 +22,7 @@ The MnCl₂/dNTP mutation-rate multipliers are **heuristic**, not experimental c
 
 The static application is in [`web/`](web/). Open `web/index.html` in a modern browser, enter the parameters and run a calculation; results can be exported as JSON. It runs in JavaScript and does **not** load a Python runtime, use a backend, call third-party APIs or send sequence data off-device.
 
-A GitHub Actions Pages workflow is included for deploying the `web/` directory once GitHub Pages is enabled for the repository. A live URL should only be published after the deployment is confirmed.
+The `web/` directory is deployed to [GitHub Pages](https://abusuraihsakhri.github.io/directed-evolution-ep-pcr-agent/) through GitHub Actions. The deployment workflow verifies that the public page and JavaScript module are served successfully.
 
 ## Python installation
 
