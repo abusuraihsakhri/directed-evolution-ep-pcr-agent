@@ -101,6 +101,15 @@ def calculate_mutation_rate(conditions: PCRConditions) -> MutationRateResult:
     MnCl2 effect: ~3x increase per 0.1 mM above 0.05 mM
     dNTP imbalance: ~1.5x increase per 0.5 ratio unit above 1.0
     """
+    if (not all(math.isfinite(value) for value in (
+        conditions.mncl2_concentration, conditions.dntp_imbalance,
+        conditions.taq_error_rate,
+    )) or conditions.mncl2_concentration < 0
+            or conditions.dntp_imbalance <= 0
+            or conditions.taq_error_rate < 0
+            or conditions.cycle_number <= 0
+            or conditions.template_length <= 0):
+        raise ValueError("PCR conditions require finite nonnegative rates, positive cycles, length and dNTP ratio")
     base_rate = conditions.taq_error_rate
     
     # MnCl2 effect (empirical model)
@@ -147,8 +156,8 @@ def poisson_probability(k: int, lambda_val: float) -> float:
     Returns:
         Probability of exactly k events
     """
-    if lambda_val < 0:
-        raise ValueError("Lambda must be non-negative")
+    if not math.isfinite(lambda_val) or lambda_val < 0:
+        raise ValueError("Lambda must be finite and non-negative")
     if k < 0:
         return 0.0
     if lambda_val == 0:
@@ -161,7 +170,9 @@ def poisson_probability(k: int, lambda_val: float) -> float:
 
 def poisson_cumulative(k: int, lambda_val: float) -> float:
     """Cumulative Poisson distribution: P(X ≤ k)."""
-    return sum(poisson_probability(i, lambda_val) for i in range(k + 1))
+    if not math.isfinite(lambda_val) or lambda_val < 0:
+        raise ValueError("Lambda must be finite and non-negative")
+    return min(1.0, sum(poisson_probability(i, lambda_val) for i in range(k + 1)))
 
 
 def mutation_distribution(lambda_val: float, max_k: int = 20) -> Dict[int, float]:
@@ -173,6 +184,10 @@ def mutation_distribution(lambda_val: float, max_k: int = 20) -> Dict[int, float
     Returns:
         Dict mapping number of mutations to probability
     """
+    if max_k < 0:
+        raise ValueError("max_k must be non-negative")
+    if not math.isfinite(lambda_val) or lambda_val < 0:
+        raise ValueError("Lambda must be finite and non-negative")
     return {k: poisson_probability(k, lambda_val) for k in range(max_k + 1)}
 
 
@@ -192,8 +207,10 @@ def library_size_for_coverage(num_variants: int, coverage: float = 0.95) -> int:
     """
     if num_variants <= 0:
         return 0
-    if coverage <= 0 or coverage >= 1:
+    if not math.isfinite(coverage) or coverage <= 0 or coverage >= 1:
         raise ValueError("Coverage must be between 0 and 1 exclusive")
+    if num_variants == 1:
+        return 1
     
     # For large N, use approximation: L ≈ -N × ln(1 - coverage)
     if num_variants > 1000:
@@ -213,7 +230,7 @@ def coverage_at_library_size(num_variants: int, library_size: int) -> float:
         return 1.0
     if library_size <= 0:
         return 0.0
-    return 1.0 - (1.0 - 1.0 / num_variants) ** library_size
+    return -math.expm1(library_size * math.log1p(-1.0 / num_variants)) if num_variants > 1 else 1.0
 
 
 def library_diversity(num_positions: int, num_choices: int = 4) -> int:
@@ -221,6 +238,8 @@ def library_diversity(num_positions: int, num_choices: int = 4) -> int:
     
     For L random positions with N choices each: N^L variants.
     """
+    if num_positions < 0 or num_choices < 1:
+        raise ValueError("Positions must be non-negative and choices must be at least one")
     return num_choices ** num_positions
 
 
@@ -256,65 +275,36 @@ def simpson_diversity(frequencies: List[float]) -> float:
 
 def simulate_mutations(sequence: str, lambda_val: float,
                         seed: Optional[int] = None) -> Tuple[str, List[MutationEvent]]:
-    """Simulate error-prone PCR mutations on a DNA sequence.
-    
-    Uses Poisson distribution for number of mutations,
-    then randomly selects positions and substitutions.
-    
-    Args:
-        sequence: DNA sequence (uppercase)
-        lambda_val: Expected number of mutations
-        seed: Random seed for reproducibility
-    Returns:
-        Tuple of (mutated sequence, list of mutation events)
+    """Simulate independent nucleotide substitutions without repeated-site hits.
+
+    Sites follow a Poisson process with mean lambda_val / sequence_length.
+    The alteration probability is 1 - exp(-lambda_val / sequence_length).
+    The bounded site model avoids repeated-hit artifacts and underflow.
     """
-    if seed is not None:
-        random.seed(seed)
-    
-    seq = list(sequence.upper())
-    n_mutations = _poisson_sample(lambda_val)
-    
+    if not sequence or any(base not in "ACGT" for base in sequence.upper()):
+        raise ValueError("Sequence must be non-empty DNA (A, C, G, T)")
+    if not math.isfinite(lambda_val) or lambda_val < 0:
+        raise ValueError("Lambda must be finite and non-negative")
+
+    rng = random.Random(seed)
+    original = sequence.upper()
+    seq = list(original)
+    site_probability = -math.expm1(-lambda_val / len(seq))
+    for pos, base in enumerate(seq):
+        if rng.random() < site_probability:
+            seq[pos] = rng.choice([candidate for candidate in NUCLEOTIDES
+                                   if candidate != base])
+
+    mutated = "".join(seq)
+    classified = {event.position: event for event in classify_mutations(original, mutated)}
     events = []
-    positions_used = set()
-    
-    for _ in range(n_mutations):
-        # Pick random position (avoid duplicates)
-        attempts = 0
-        while attempts < 100:
-            pos = random.randint(0, len(seq) - 1)
-            if pos not in positions_used:
-                break
-            attempts += 1
-        
-        if pos in positions_used:
-            continue
-        
-        positions_used.add(pos)
-        original_base = seq[pos]
-        
-        # Pick a different base
-        choices = [b for b in NUCLEOTIDES if b != original_base]
-        new_base = random.choice(choices)
-        
-        # Determine if transition or transversion
-        is_transition = (
-            (original_base in 'AG' and new_base in 'AG') or
-            (original_base in 'CT' and new_base in 'CT')
-        )
-        
-        seq[pos] = new_base
-        
-        events.append(MutationEvent(
-            position=pos,
-            original_codon=original_base,
-            mutated_codon=new_base,
-            original_aa='',  # filled in by caller if needed
-            mutated_aa='',
-            is_synonymous=False,
-            is_nonsense=False,
-        ))
-    
-    return ''.join(seq), events
+    for pos, (before, after) in enumerate(zip(original, mutated)):
+        if before != after:
+            event = classified.get(pos)
+            if event is None:  # Trailing nucleotides beyond a complete codon.
+                event = MutationEvent(pos, before, after, "", "", False, False)
+            events.append(event)
+    return mutated, events
 
 
 def _poisson_sample(lambda_val: float) -> int:
@@ -364,9 +354,7 @@ def classify_mutations(original: str, mutated: str) -> List[MutationEvent]:
             codon_start = (i // 3) * 3
             if codon_start + 3 <= len(original) and codon_start + 3 <= len(mutated):
                 orig_codon = original[codon_start:codon_start+3]
-                mut_codon = list(orig_codon)
-                mut_codon[i - codon_start] = mutated[i]
-                mut_codon = ''.join(mut_codon)
+                mut_codon = mutated[codon_start:codon_start+3]
                 
                 orig_aa = translate_codon(orig_codon)
                 mut_aa = translate_codon(mut_codon)
@@ -413,8 +401,10 @@ def nk_fitness(genotype: List[int], n: int, k: int,
     
     if len(genotype) != n:
         raise ValueError(f"Genotype length {len(genotype)} != N {n}")
-    if k >= n:
-        raise ValueError(f"K ({k}) must be less than N ({n})")
+    if n <= 0 or not 0 <= k < n:
+        raise ValueError("N must be positive and K must satisfy 0 <= K < N")
+    if any(bit not in (0, 1) for bit in genotype):
+        raise ValueError("NK genotypes must contain only 0 and 1")
     
     # Generate interaction sets if not provided
     if interactions is None:
@@ -464,6 +454,8 @@ def tournament_selection(population: List[Tuple[List[int], float]],
     if seed is not None:
         random.seed(seed)
     
+    if not population or tournament_size < 1:
+        raise ValueError("Tournament needs a nonempty population and positive size")
     competitors = random.sample(population, min(tournament_size, len(population)))
     return max(competitors, key=lambda x: x[1])
 
@@ -474,6 +466,8 @@ def roulette_selection(population: List[Tuple[List[int], float]],
     if seed is not None:
         random.seed(seed)
     
+    if not population or any(not math.isfinite(f) or f < 0 for _, f in population):
+        raise ValueError("Roulette selection requires finite nonnegative fitness values")
     total_fitness = sum(f for _, f in population)
     if total_fitness == 0:
         return random.choice(population)
@@ -519,7 +513,14 @@ def simulate_directed_evolution(
     
     if n is None:
         n = len(initial_genotype)
-    
+    if (n <= 0 or len(initial_genotype) != n or not 0 <= k < n
+            or any(bit not in (0, 1) for bit in initial_genotype)
+            or n_generations < 1 or population_size < 1
+            or not math.isfinite(mutation_rate) or not 0 <= mutation_rate <= 1
+            or selection_method not in ("tournament", "roulette")
+            or tournament_size < 1):
+        raise ValueError("Invalid evolution parameters or binary initial genotype")
+
     # Initialize fitness table for consistent landscape
     fitness_table = {}
     rng_state = random.getstate()
