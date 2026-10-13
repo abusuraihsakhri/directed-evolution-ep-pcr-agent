@@ -30,3 +30,20 @@ jobs:
         run: |
           node --check web/app.mjs
           node --test tests/web.test.mjs
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build container image
+        run: docker build -t directed-evolution-check .
+      - name: Start service and exercise HTTP endpoints
+        run: |
+          docker run -d --name directed-evolution-check -e AUDIT_SECRET_KEY=ci-nonproduction-secret -p 127.0.0.1:8766:8000 directed-evolution-check
+          trap 'docker logs directed-evolution-check; docker rm -f directed-evolution-check' EXIT
+          for attempt in $(seq 1 40); do
+            if curl --silent --fail http://127.0.0.1:8766/health > /dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8766/health | python -c 'import json,sys; assert json.load(sys.stdin)["status"] == "HEALTHY"'
+          curl --fail --silent -X POST http://127.0.0.1:8766/api/audit -H "Content-Type: application/json" -d '{"task_id":"CI-1","target_identifier":"SEQ-1","primary_metric":10.0}' | python -c 'import json,sys; assert json.load(sys.stdin)["overall_urgency"] == "ROUTINE"'
