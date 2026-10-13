@@ -33,3 +33,28 @@ jobs:
           path: web
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify published HTML and JavaScript
+        env:
+          DEPLOYED_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          python - <<'PY'
+          import os
+          import time
+          import urllib.request
+
+          base = os.environ["DEPLOYED_URL"].rstrip("/") + "/"
+          for attempt in range(15):
+              try:
+                  with urllib.request.urlopen(base, timeout=15) as response:
+                      html = response.read().decode("utf-8")
+                  with urllib.request.urlopen(base + "app.mjs", timeout=15) as response:
+                      script = response.read().decode("utf-8")
+                  assert '<script type="module" src="./app.mjs"></script>' in html
+                  assert "export function calculateRate" in script
+                  print("Published HTML and JavaScript verified:", base)
+                  break
+              except Exception:
+                  if attempt == 14:
+                      raise
+                  time.sleep(4)
+          PY
