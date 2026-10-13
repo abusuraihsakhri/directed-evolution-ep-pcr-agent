@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,10 +8,9 @@ version = "3.0.0"
 description = "Error-prone PCR and directed evolution analysis and simulation tools"
 readme = "README.md"
 authors = [{ name = "Dr. Abu Suraih Sakhri" }]
-license = { text = "MIT" }
+license = "MIT"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
@@ -28,3 +27,7 @@ directed-evolution-ep-pcr-engine = "directed_evolution.cli:main"
 [project.urls]
 Homepage = "https://github.com/abusuraihsakhri/directed-evolution-ep-pcr-agent"
 Repository = "https://github.com/abusuraihsakhri/directed-evolution-ep-pcr-agent"
+
+[tool.setuptools]
+packages = ["agents", "directed_evolution"]
+py-modules = ["cli", "directed_evolution_app", "enrichment", "simulator"]
